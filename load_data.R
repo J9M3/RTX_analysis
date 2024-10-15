@@ -1,0 +1,1 @@
+pacman::p_load(quantmod, magrittr, data.table, lubridate, ggplot2)
