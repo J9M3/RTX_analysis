@@ -4,6 +4,8 @@ pacman::p_load(quantmod, magrittr, data.table, lubridate, ggplot2 , readxl , str
 ## Get RTX data
 quantmod::getSymbols("RTX")
 RTX_OHCL = as.data.table(RTX)
+RTX_OHCL <- RTX_OHCL[index >= as.Date("2019-12-01") , ]
+OHCL_cols <- names(RTX_OHCL)
 rm(RTX)
 
 ## Get 10Qs 
@@ -55,4 +57,16 @@ xl_table[, Date := lubridate::mdy(Date)]
 xl_table <- xl_table[order(Date)]
 xl_table <- unique(xl_table)
 
+earning_dates <- xl_table$Date
 
+xl_with_price = data.table::merge.data.table(x = xl_table ,
+                                             y = RTX_OHCL ,
+                                             by.x = "Date",
+                                             by.y = "index", 
+                                             all.y = T, 
+                                             all.x = T)
+
+
+xl_with_price[ , (OHCL_cols[-1]) :=data.table::nafill(.SD , type = "locf" ), .SDcols = OHCL_cols[-1]]
+
+xl_with_price[Date %in% earning_dates , ] %>% View
