@@ -1,4 +1,4 @@
-pacman::p_load(quantmod, magrittr, data.table, lubridate, ggplot2 , readxl)
+pacman::p_load(quantmod, magrittr, data.table, lubridate, ggplot2 , readxl , stringr , lubridate)
 
 
 ## Get RTX data
@@ -10,10 +10,6 @@ rm(RTX)
 
 path = "/Users/j9m3/Documents/Personal/Trading/RTX10KQ"
 files = list.files(path)
-A <- readxl::read_xls(
-  path = paste0(path , "/" , files[1]  ), 
-  sheet = 4
-  ) %>% as.data.table()
 
 
 xl_list <- lapply(files , function(x){
@@ -25,14 +21,38 @@ xl_list <- lapply(files , function(x){
   cols <- names(which(sapply(y, is.character)))
   
   y <- y[ , .SD , .SDcols =  cols ] %>% na.omit()
+  data.table::setnames(y , old = names(y) , new = c("lead" , "c1" , "c2") )
+  y <- y[ lead != "Assets related to discontinued operations"
+          & lead != "Future income tax benefits", ]
   
   return(y)
 })
 
 
-xl_table <- data.table::rbindlist(xl_list, 
-                                  fill = T)
+xl_table <- do.call(cbind , xl_list) %>% as.data.table()
 
-dt_cast
 
-list.files(path)
+names(xl_table) <- paste0(names(xl_table) , 1:39)
+xl_table <- cbind(xl_table[, 1] , xl_table[, .SD , .SDcols = names(xl_table)[grepl("c" , names(xl_table))]])
+xl_table[1,1] <- "Date"
+
+xl_table <- data.table::transpose(xl_table )
+
+tmp_names <- xl_table[1,] %>%
+  as.character() %>%
+  stringr::str_replace_all(. , "," , "_") %>% 
+  stringr::str_replace_all(. , " " , "_") %>% 
+  stringr::str_replace_all(. , "`" , "_") %>% 
+  stringr::str_replace_all(. , "-" , "_")
+
+names(xl_table) <- tmp_names
+xl_table <- xl_table[-1,]
+
+
+cols2convert <- names(xl_table)[-1]
+xl_table[, (cols2convert) :=lapply(.SD ,  as.numeric) , .SDcols = cols2convert]
+xl_table[, Date := lubridate::mdy(Date)]
+xl_table <- xl_table[order(Date)]
+xl_table <- unique(xl_table)
+
+
